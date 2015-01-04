@@ -491,7 +491,7 @@ class ssh (
       $ssh_key_export_real = str2bool($ssh_key_export)
     }
     'boolean': {
-      $ssh_key_import_real = $ssh_key_export
+      $ssh_key_export_real = $ssh_key_export
     }
     default: {
       fail('ssh::ssh_key_export type must be true or false.')
