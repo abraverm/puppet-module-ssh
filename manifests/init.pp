@@ -83,6 +83,9 @@ class ssh (
   $keys                                = undef,
   $manage_root_ssh_config              = 'false',
   $root_ssh_config_content             = "# This file is being maintained by Puppet.\n# DO NOT EDIT\n",
+  $sshkey_tag                          = undef,
+  $ssh_key_export                      = false,
+  $host_aliases                        = undef,
 ) {
 
   case $::osfamily {
@@ -482,7 +485,20 @@ class ssh (
     }
   }
 
-  case type($ssh_config_sendenv_xmodifiers) {
+   case type($ssh_key_export) {
+    'string': {
+      validate_re($ssh_key_export, '^(true|false)$', "ssh::ssh_key_export may be either 'true' or 'false' and is set to <${ssh_key_export}>.")
+      $ssh_key_export_real = str2bool($ssh_key_export)
+    }
+    'boolean': {
+      $ssh_key_import_real = $ssh_key_export
+    }
+    default: {
+      fail('ssh::ssh_key_export type must be true or false.')
+    }
+  }
+
+ case type($ssh_config_sendenv_xmodifiers) {
     'string': {
       $ssh_config_sendenv_xmodifiers_real = str2bool($ssh_config_sendenv_xmodifiers)
     }
@@ -658,10 +674,14 @@ class ssh (
   }
 
   # export each node's ssh key
-  @@sshkey { $::fqdn :
-    ensure => $ssh_key_ensure,
-    type   => $ssh_key_type,
-    key    => $key,
+  if $ssh_key_export_real == true {
+    @@sshkey { $::fqdn :
+      ensure       => $ssh_key_ensure,
+      type         => $ssh_key_type,
+      key          => $key,
+      host_aliases => $host_aliases,
+      tag          => $sshkey_tag,
+    }
   }
 
   file { 'ssh_known_hosts':
@@ -674,8 +694,12 @@ class ssh (
 
   # import all nodes' ssh keys
   if $ssh_key_import_real == true {
+    if $sshkey_tag != undef {
+      Sshkey <<| tag == $sshkey_tag |>>
+    } else {
     Sshkey <<||>> {
       target => $ssh_config_global_known_hosts_file,
+    }
     }
   }
 
